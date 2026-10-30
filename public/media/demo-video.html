@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مشغل الفيديو التجريبي</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #04131a; font-family: 'Almarai', 'Tajawal', 'Segoe UI', Arial, sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .frame {
+    position: relative; width: 100%; max-width: 1100px; aspect-ratio: 16 / 9;
+    border-radius: 18px; overflow: hidden;
+    background:
+      radial-gradient(900px 420px at 72% 18%, rgba(143,168,42,.28), transparent 62%),
+      radial-gradient(700px 380px at 18% 92%, rgba(11,107,125,.42), transparent 66%),
+      linear-gradient(140deg, #06222c 0%, #04131a 62%, #031017 100%);
+    border: 1px solid rgba(143,168,42,.35);
+    box-shadow: 0 30px 80px rgba(0,0,0,.55);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center; color: #eaf2f4;
+  }
+  .frame::before {
+    content: ""; position: absolute; inset: 18px; border: 1px dashed rgba(143,168,42,.22);
+    border-radius: 12px; pointer-events: none;
+  }
+  .orbit { position: absolute; inset: 0; overflow: hidden; opacity: .5; }
+  .orbit span {
+    position: absolute; left: 50%; top: 50%; width: 62%; height: 30%;
+    border: 1px solid rgba(195,209,79,.32); border-radius: 50%;
+    transform: translate(-50%, -50%) rotate(var(--r));
+  }
+  .play {
+    position: relative; z-index: 1; width: 86px; height: 86px; border-radius: 50%;
+    background: rgba(143,168,42,.16); border: 2px solid #c3d14f;
+    display: grid; place-items: center; box-shadow: 0 0 0 14px rgba(143,168,42,.07);
+  }
+  .play::after {
+    content: ""; width: 0; height: 0; margin-right: 6px;
+    border-top: 15px solid transparent; border-bottom: 15px solid transparent;
+    border-right: 24px solid #eaf2f4;
+  }
+  h1 { position: relative; z-index: 1; margin: 0; font-size: clamp(18px, 2.4vw, 28px); font-weight: 800; }
+  p { position: relative; z-index: 1; margin: 0; max-width: 540px; padding: 0 22px; color: #a9c1c7; font-size: clamp(13px, 1.4vw, 16px); line-height: 1.9; }
+  .badge {
+    position: absolute; top: 12px; right: 14px; z-index: 2;
+    font-size: 12px; letter-spacing: .5px; color: #c3d14f;
+    border: 1px solid rgba(195,209,79,.45); border-radius: 999px; padding: 5px 12px;
+    background: rgba(4,19,26,.55);
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <span class="badge">Physics Society · نسخة تجريبية</span>
+    <div class="orbit" aria-hidden="true">
+      <span style="--r:-24deg"></span>
+      <span style="--r:36deg"></span>
+      <span style="--r:96deg"></span>
+    </div>
+    <div class="play" aria-hidden="true"></div>
+    <h1>مشغل المحاضرات</h1>
+    <p>هذه نسخة إعادة بناء تجريبية. الفيديو الأصلي محمي بحقوق صاحبه وغير متاح هنا، لكن الصفحة والمحتوى والتنقل يعملون بنفس شكل المنصة.</p>
+  </div>
+</body>
+</html>

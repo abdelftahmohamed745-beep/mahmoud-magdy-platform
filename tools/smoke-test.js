@@ -1,0 +1,157 @@
+'use strict';
+/*
+ * فحص دخان شامل: يشغّل الخادم المحلي على منفذ عشوائي، ثم يتحقق من:
+ *   - الصفحة الرئيسية وملفات الواجهة الأساسية
+ *   - تسجيل الدخول التجريبي والجلسة
+ *   - واجهات API التي تعتمد عليها الصفحات الأساسية
+ *   - صفحات SPA العميقة (تُرجع index.html)
+ *   - مسار الفاتورة التجريبي
+ *
+ * التشغيل: npm test
+ */
+const { spawn } = require('node:child_process');
+const path = require('node:path');
+
+const PORT = 4400 + Math.floor(Math.random() * 400);
+const BASE = `http://127.0.0.1:${PORT}`;
+const ROOT = path.resolve(__dirname, '..');
+
+let failures = 0;
+function check(name, ok, extra = '') {
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok || !extra ? '' : ` — ${extra}`}`);
+  if (!ok) failures++;
+}
+
+async function waitForServer(child) {
+  for (let i = 0; i < 100; i++) {
+    if (child.exitCode !== null) throw new Error('انتهت عملية الخادم مبكرًا');
+    try {
+      const res = await fetch(`${BASE}/api/health`);
+      if (res.ok) return;
+    } catch { /* لم يجهز بعد */ }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  throw new Error('انتهت مهلة انتظار الخادم');
+}
+
+async function json(pathname, options) {
+  const res = await fetch(BASE + pathname, options);
+  const body = await res.json().catch(() => null);
+  return { res, body };
+}
+
+async function main() {
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: ROOT,
+    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1' },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  let stderr = '';
+  child.stderr.on('data', d => { stderr += d.toString(); });
+
+  try {
+    await waitForServer(child);
+
+    const health = await json('/api/health');
+    check('health ok', health.res.status === 200 && health.body.ok === true);
+
+    const home = await fetch(`${BASE}/`);
+    const html = await home.text();
+    check('home 200', home.status === 200);
+    check('RTL + title', html.includes('dir="rtl"') && html.includes('Physics Society'));
+    check('original bundle served', html.includes('/static/js/main.93f05b22.js'));
+    check('trackers removed', !/facebook|hotjar|cloudflareinsights|googletagmanager/i.test(html));
+
+    const css = await fetch(`${BASE}/static/css/main.355ff2f2.css`);
+    check('main css 200', css.status === 200 && (css.headers.get('content-type') || '').includes('text/css'));
+
+    const js = await fetch(`${BASE}/static/js/main.93f05b22.js`);
+    const jsText = await js.text();
+    check('main js 200', js.status === 200 && jsText.length > 1_000_000);
+    check('api base patched to same-origin', jsText.includes('Zt=""') || !jsText.includes('https://api.mahmoud-magdy.com'));
+
+    for (const route of ['/home', '/login', '/register', '/years/3', '/store_locator', '/terms_and_conditions', '/parent_dashboard', '/course/1', '/subject/1', '/teacher/1', '/community', '/me/user/']) {
+      const r = await fetch(BASE + route);
+      const body = await r.text();
+      check(`SPA route ${route}`, r.status === 200 && body.includes('<div id="root">'));
+    }
+
+    const login = await json('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '01000000000', password: '246810' })
+    });
+    check('demo login 200', login.res.status === 200);
+    check('login returns token + user', !!(login.body && login.body.token && login.body.user));
+    check('login is_logged_in', login.body && login.body.is_logged_in === true);
+    const auth = { Authorization: `Bearer ${login.body.token}` };
+
+    const badLogin = await fetch(`${BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '01000000000', password: 'wrong' })
+    });
+    check('wrong password 422', badLogin.status === 422);
+
+    const reviews = await json('/api/sellables/year/3', { headers: auth });
+    check('year 3 courses', reviews.res.status === 200 && Array.isArray(reviews.body) && reviews.body.length >= 5, `count=${reviews.body && reviews.body.length}`);
+    check('course cards have sellable + cover', reviews.body.every(c => c.sellable && c.picture && c.isStaticPicture === false));
+
+    const course = await json('/api/sellables/1', { headers: auth });
+    check('course detail', course.res.status === 200 && course.body.id === 1);
+    check('course counters present', course.body.total_questions_quantity > 0 && course.body.total_videos_duration > 0 && course.body.is_couponable === true);
+
+    const content = await json('/api/sellables/course/1/content', { headers: auth });
+    check('course content sections', Array.isArray(content.body) && content.body.length === 3);
+    check('content uses sectionables', content.body.every(s => Array.isArray(s.sectionables) && s.sectionables.length > 0));
+
+    const sectionable = await json('/api/sellables/course/1/sections/1/sectionables/1', { headers: auth });
+    check('sectionable detail', sectionable.res.status === 200 && sectionable.body.sectionable && sectionable.body.sectionable.platform === 'bunny');
+
+    const pre = await json('/api/sellables/course/1/subscribe_pre_request', { method: 'POST', headers: auth });
+    check('subscribe pre request', pre.res.status === 200 && Array.isArray(pre.body.previous_invoices));
+
+    const coupon = await json('/api/sellables/course/1/validate_coupon', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ coupon: 'PHYSICS10' })
+    });
+    check('coupon PHYSICS10', coupon.res.status === 200 && coupon.body.discount === 10);
+
+    const invoice = await json('/api/sellables/course/1/subscribe_request', { method: 'POST', headers: auth, body: '{}' });
+    check('demo invoice created', invoice.res.status === 200 && /^DEMO-/.test(invoice.body.referenceNumber || ''));
+
+    const stats = await json('/api/user/statistics', { headers: auth });
+    check('user statistics', stats.res.status === 200 && 'total_videos_count' in stats.body);
+
+    const community = await json('/api/visible/community_categories');
+    check('community categories', community.res.status === 200 && Array.isArray(community.body) && community.body.length > 0);
+
+    const gov = await json('/api/governments');
+    check('governments', gov.res.status === 200 && Array.isArray(gov.body) && gov.body.length > 0);
+
+    const terms = await fetch(`${BASE}/terms_and_conditions`);
+    check('terms page 200', terms.status === 200);
+
+    const missing = await fetch(`${BASE}/api/sellables/course/1/sections/1/sectionables/999999`);
+    check('unknown sectionable 404', missing.status === 404);
+
+    const media = await fetch(`${BASE}/media/demo-video.html`);
+    const mediaText = await media.text();
+    check('demo video placeholder', media.status === 200 && mediaText.includes('مشغل المحاضرات'));
+
+    const robots = await fetch(`${BASE}/robots.txt`);
+    check('robots.txt noindex', robots.status === 200 && (await robots.text()).includes('Disallow: /'));
+
+    check('server stderr empty', stderr.trim() === '', stderr.slice(0, 300));
+  } finally {
+    child.kill('SIGTERM');
+    await new Promise(r => child.once('exit', r));
+  }
+
+  console.log(`\n${failures === 0 ? '✅ جميع الفحوصات ناجحة' : `❌ فشل ${failures} فحص`}`);
+  process.exit(failures === 0 ? 0 : 1);
+}
+
+main().catch(err => {
+  console.error('ERR', err);
+  process.exit(1);
+});

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label="Physics Society course cover">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d2a3a"/>
+      <stop offset="0.55" stop-color="#1b5e7a"/>
+      <stop offset="1" stop-color="#0d2a3a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.7" cy="0.25" r="0.6">
+      <stop offset="0" stop-color="#4E8B99" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#4E8B99" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#g)"/>
+  <rect width="800" height="450" fill="url(#glow)"/>
+  <g fill="none" stroke="#4E8B99" stroke-opacity="0.75" stroke-width="2">
+    <ellipse cx="570" cy="150" rx="150" ry="58" transform="rotate(-24 570 150)"/>
+    <ellipse cx="570" cy="150" rx="150" ry="58" transform="rotate(36 570 150)"/>
+    <ellipse cx="570" cy="150" rx="150" ry="58" transform="rotate(96 570 150)"/>
+    <circle cx="570" cy="150" r="16" fill="#4E8B99" stroke="none" fill-opacity="0.95"/>
+  </g>
+  <g fill="#ffffff" fill-opacity="0.85">
+    <circle cx="120" cy="330" r="4"/>
+    <circle cx="170" cy="270" r="2.5"/>
+    <circle cx="230" cy="350" r="3"/>
+    <circle cx="300" cy="120" r="2.5"/>
+    <circle cx="360" cy="70" r="2"/>
+    <circle cx="80" cy="120" r="2"/>
+  </g>
+  <g font-family="'Sharp Grotesk', 'Segoe UI', Arial, sans-serif" fill="#ffffff">
+    <text x="60" y="112" font-size="17" letter-spacing="7" fill-opacity="0.8">PHYSICS SOCIETY</text>
+    <text x="60" y="215" font-size="86" font-weight="700" fill-opacity="0.16">05</text>
+  </g>
+  <g font-family="'Almarai', 'Tajawal', 'Segoe UI', Arial, sans-serif" fill="#ffffff" direction="rtl" text-anchor="end">
+    <text x="742" y="392" font-size="26" font-weight="700" fill-opacity="0.92">محمود مجدي</text>
+    <text x="742" y="422" font-size="16" fill-opacity="0.6">Physics · Society</text>
+  </g>
+  <rect x="0" y="0" width="800" height="450" fill="none" stroke="#4E8B99" stroke-opacity="0.35" stroke-width="6"/>
+</svg>

@@ -1,0 +1,27 @@
+{
+  "name": "mahmoud-magdy-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Physics Society / منصة محمود مجدي — نسخة إعادة بناء محلية (واجهة React أصلية + API تجريبي بلا إطار عمل)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node tools/smoke-test.js",
+    "assets": "node tools/generate-assets.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "physics",
+    "arabic",
+    "rtl",
+    "education",
+    "vercel",
+    "serverless",
+    "node",
+    "clone"
+  ],
+  "license": "MIT"
+}
