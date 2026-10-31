@@ -11,6 +11,8 @@
  */
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const os = require('node:os');
+const fs = require('node:fs');
 
 const PORT = 4400 + Math.floor(Math.random() * 400);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -41,9 +43,10 @@ async function json(pathname, options) {
 }
 
 async function main() {
+  const storeFile = path.join(os.tmpdir(), `ps-smoke-store-${PORT}.json`);
   const child = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1' },
+    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', STORE_FILE: storeFile },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let stderr = '';
@@ -164,11 +167,78 @@ async function main() {
     const spaRe = new RegExp(`^${spaRewrite.source}$`);
     check('vercel spa rewrite keeps deep links', spaRe.test('/course/1') && spaRe.test('/me/user/'));
     check('vercel spa rewrite excludes assets', !spaRe.test('/static/js/main.3306f142.js') && !spaRe.test('/media/demo-video.html') && !spaRe.test('/api/health'));
+    check('vercel spa rewrite excludes panel assets', !spaRe.test('/panel/panel.js') && !spaRe.test('/panel/panel.css'));
+    const panelRewrites = vercel.rewrites.filter(r => /^\/panel\/(admin|teacher)\.html$/.test(r.destination));
+    check('vercel maps panel pages', panelRewrites.length >= 3 && panelRewrites.some(r => r.source === '/admin') && panelRewrites.some(r => r.source === '/teacher-panel'));
+
+    // --- لوحات التحكم (أدمن / مدرس) ---------------------------------------
+    for (const route of ['/admin', '/teacher-panel', '/teacher_admin_panel']) {
+      const page = await fetch(BASE + route);
+      const text = await page.text();
+      check(`panel page ${route}`, page.status === 200 && text.includes('/panel/panel.js') && text.includes('Physics Society'));
+    }
+
+    const panelCss = await fetch(`${BASE}/panel/panel.css`);
+    check('panel css 200', panelCss.status === 200 && (panelCss.headers.get('content-type') || '').includes('text/css'));
+
+    const panelJs = await fetch(`${BASE}/panel/panel.js`);
+    check('panel js 200', panelJs.status === 200 && (await panelJs.text()).includes('ps_admin_token'));
+
+    const adminLogin = await json('/api/admin/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@physics.society', password: 'Admin@2026' })
+    });
+    check('admin panel login', adminLogin.res.status === 200 && !!adminLogin.body.token);
+    const adminAuth = { Authorization: `Bearer ${adminLogin.body.token}` };
+
+    const adminOverview = await json('/api/admin/overview', { headers: adminAuth });
+    check('admin panel overview', adminOverview.res.status === 200 && adminOverview.body.stats && adminOverview.body.stats.students >= 6);
+
+    const adminUnauthorized = await fetch(`${BASE}/api/admin/overview`);
+    check('admin panel rejects anonymous', adminUnauthorized.status === 401);
+
+    const teacherLogin = await json('/api/teacher-panel/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '01100000001', password: 'teacher123' })
+    });
+    check('teacher panel login', teacherLogin.res.status === 200 && !!teacherLogin.body.token);
+    const teacherAuth = { Authorization: `Bearer ${teacherLogin.body.token}` };
+
+    const teacherOverview = await json('/api/teacher-panel/overview', { headers: teacherAuth });
+    check('teacher panel overview', teacherOverview.res.status === 200 && teacherOverview.body.stats.courses > 0 && teacherOverview.body.stats.lessons > 0);
+
+    const teacherOnAdmin = await fetch(`${BASE}/api/admin/overview`, { headers: teacherAuth });
+    check('teacher cannot use admin api', teacherOnAdmin.status === 401 || teacherOnAdmin.status === 403);
+
+    const studentCreate = await json('/api/admin/students', {
+      method: 'POST',
+      headers: { ...adminAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'طالب فحص الدخان', phone: '01099990001', year: 3, active: true })
+    });
+    check('admin creates student', (studentCreate.res.status === 200 || studentCreate.res.status === 201) && !!studentCreate.body.student.id);
+
+    const studentId = studentCreate.body.student.id;
+    const studentPatch = await json(`/api/admin/students/${studentId}`, {
+      method: 'PATCH',
+      headers: { ...adminAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'طالب فحص الدخان المعدّل' })
+    });
+    check('admin updates student', studentPatch.res.status === 200 && studentPatch.body.student.name === 'طالب فحص الدخان المعدّل');
+
+    const settingsPatch = await json('/api/admin/settings', {
+      method: 'PATCH',
+      headers: { ...adminAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notice: 'تنبيه فحص الدخان' })
+    });
+    check('admin updates settings', settingsPatch.res.status === 200 && settingsPatch.body.settings.notice === 'تنبيه فحص الدخان');
 
     check('server stderr empty', stderr.trim() === '', stderr.slice(0, 300));
   } finally {
     child.kill('SIGTERM');
     await new Promise(r => child.once('exit', r));
+    try { fs.unlinkSync(storeFile); } catch { /* ignore */ }
   }
 
   console.log(`\n${failures === 0 ? '✅ جميع الفحوصات ناجحة' : `❌ فشل ${failures} فحص`}`);

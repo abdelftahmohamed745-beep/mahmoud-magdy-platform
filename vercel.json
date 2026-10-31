@@ -6,13 +6,39 @@
     "api/[...path].js": {
       "memory": 1024,
       "maxDuration": 15,
-      "regions": ["fra1"],
+      "regions": [
+        "fra1"
+      ],
       "includeFiles": "data/**"
     }
   },
   "rewrites": [
     {
-      "source": "/((?!api/|sanctum/|static/|media/).*)",
+      "source": "/admin",
+      "destination": "/panel/admin.html"
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": "/panel/admin.html"
+    },
+    {
+      "source": "/teacher-panel",
+      "destination": "/panel/teacher.html"
+    },
+    {
+      "source": "/teacher-panel/(.*)",
+      "destination": "/panel/teacher.html"
+    },
+    {
+      "source": "/teacher_admin_panel",
+      "destination": "/panel/teacher.html"
+    },
+    {
+      "source": "/teacher_admin_panel/(.*)",
+      "destination": "/panel/teacher.html"
+    },
+    {
+      "source": "/((?!api/|sanctum/|static/|media/|panel/).*)",
       "destination": "/index.html"
     }
   ],
@@ -20,23 +46,44 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
       ]
     },
     {
       "source": "/static/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/media/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
       ]
     }
   ]
