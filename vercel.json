@@ -12,7 +12,7 @@
   },
   "rewrites": [
     {
-      "source": "/((?!api/|sanctum/).*)",
+      "source": "/((?!api/|sanctum/|static/|media/).*)",
       "destination": "/index.html"
     }
   ],

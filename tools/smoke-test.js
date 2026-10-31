@@ -159,6 +159,12 @@ async function main() {
     const robots = await fetch(`${BASE}/robots.txt`);
     check('robots.txt noindex', robots.status === 200 && (await robots.text()).includes('Disallow: /'));
 
+    const vercel = require(path.join(ROOT, 'vercel.json'));
+    const spaRewrite = vercel.rewrites.find(r => r.destination === '/index.html');
+    const spaRe = new RegExp(`^${spaRewrite.source}$`);
+    check('vercel spa rewrite keeps deep links', spaRe.test('/course/1') && spaRe.test('/me/user/'));
+    check('vercel spa rewrite excludes assets', !spaRe.test('/static/js/main.3306f142.js') && !spaRe.test('/media/demo-video.html') && !spaRe.test('/api/health'));
+
     check('server stderr empty', stderr.trim() === '', stderr.slice(0, 300));
   } finally {
     child.kill('SIGTERM');
