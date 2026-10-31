@@ -25,6 +25,9 @@ jobs:
           node --check server.js
           node --check lib/app.js
           node --check lib/data.js
+          node --check lib/store.js
+          node --check lib/panel.js
+          for file in public/panel/*.js; do node --check "$file"; done
           node --check api/\[...path\].js
       - name: Smoke test
         run: npm test
