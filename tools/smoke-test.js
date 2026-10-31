@@ -59,18 +59,24 @@ async function main() {
     const html = await home.text();
     check('home 200', home.status === 200);
     check('RTL + title', html.includes('dir="rtl"') && html.includes('Physics Society'));
-    check('original bundle served', html.includes('/static/js/main.93f05b22.js'));
+    const bundleMatch = /\/static\/js\/(main\.[0-9a-f]{8}\.js)/.exec(html);
+    check('bundle referenced with content hash', !!bundleMatch, bundleMatch ? bundleMatch[1] : 'missing');
     check('trackers removed', !/facebook|hotjar|cloudflareinsights|googletagmanager/i.test(html));
 
     const css = await fetch(`${BASE}/static/css/main.355ff2f2.css`);
     check('main css 200', css.status === 200 && (css.headers.get('content-type') || '').includes('text/css'));
 
-    const js = await fetch(`${BASE}/static/js/main.93f05b22.js`);
+    const overrides = await fetch(`${BASE}/static/css/overrides.css`);
+    check('overrides css 200', overrides.status === 200 && (await overrides.text()).includes('overflow-x'));
+
+    const js = await fetch(BASE + (bundleMatch ? `/static/js/${bundleMatch[1]}` : '/static/js/main.3306f142.js'));
     const jsText = await js.text();
     check('main js 200', js.status === 200 && jsText.length > 1_000_000);
     check('api base patched to same-origin', jsText.includes('Zt=""') || !jsText.includes('https://api.mahmoud-magdy.com'));
+    check('no invalid svg width="auto"', !jsText.includes('width:"auto",height:18,viewBox'));
+    check('divider svg patched to 100%', jsText.includes('width:"100%",height:18,viewBox:"0 0 518 18"'));
 
-    for (const route of ['/home', '/login', '/register', '/years/3', '/store_locator', '/terms_and_conditions', '/parent_dashboard', '/course/1', '/subject/1', '/teacher/1', '/community', '/me/user/']) {
+    for (const route of ['/home', '/login', '/register', '/years/3', '/store_locator', '/terms_and_conditions', '/parent_dashboard', '/course/1', '/subject/1', '/teacher/1', '/community', '/community/category/1', '/prepaid_store', '/available_to_assign_courses_store', '/search?s=%D9%81%D9%8A%D8%B2%D9%8A%D8%A7%D8%A1', '/me/user/']) {
       const r = await fetch(BASE + route);
       const body = await r.text();
       check(`SPA route ${route}`, r.status === 200 && body.includes('<div id="root">'));
@@ -107,6 +113,18 @@ async function main() {
 
     const sectionable = await json('/api/sellables/course/1/sections/1/sectionables/1', { headers: auth });
     check('sectionable detail', sectionable.res.status === 200 && sectionable.body.sectionable && sectionable.body.sectionable.platform === 'bunny');
+
+    const subjectTeachers = await json('/api/subjects/1/teachers', { headers: auth });
+    check('subject teachers', subjectTeachers.res.status === 200 && Array.isArray(subjectTeachers.body) && subjectTeachers.body.length === 1 && subjectTeachers.body[0].id === 1);
+
+    const subjectCourses = await json('/api/subjects/1/courses', { headers: auth });
+    check('subject courses', subjectCourses.res.status === 200 && Array.isArray(subjectCourses.body) && subjectCourses.body.length >= 5);
+
+    const teacherCourses = await json('/api/teachers/1/renamed_only/years/3/courses', { headers: auth });
+    check('teacher monthly courses', teacherCourses.res.status === 200 && Array.isArray(teacherCourses.body) && teacherCourses.body.length > 0);
+
+    const search = await json('/api/search_courses?search=' + encodeURIComponent('فيزياء'), { headers: auth });
+    check('search courses', search.res.status === 200 && Array.isArray(search.body) && search.body.length > 0);
 
     const pre = await json('/api/sellables/course/1/subscribe_pre_request', { method: 'POST', headers: auth });
     check('subscribe pre request', pre.res.status === 200 && Array.isArray(pre.body.previous_invoices));
