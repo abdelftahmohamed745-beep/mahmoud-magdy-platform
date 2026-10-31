@@ -167,22 +167,30 @@ async function main() {
     const spaRe = new RegExp(`^${spaRewrite.source}$`);
     check('vercel spa rewrite keeps deep links', spaRe.test('/course/1') && spaRe.test('/me/user/'));
     check('vercel spa rewrite excludes assets', !spaRe.test('/static/js/main.3306f142.js') && !spaRe.test('/media/demo-video.html') && !spaRe.test('/api/health'));
-    check('vercel spa rewrite excludes panel assets', !spaRe.test('/panel/panel.js') && !spaRe.test('/panel/panel.css'));
-    const panelRewrites = vercel.rewrites.filter(r => /^\/panel\/(admin|teacher)\.html$/.test(r.destination));
-    check('vercel maps panel pages', panelRewrites.length >= 3 && panelRewrites.some(r => r.source === '/admin') && panelRewrites.some(r => r.source === '/teacher-panel'));
+    check('vercel spa rewrite keeps original panel routes', spaRe.test('/magdy-mm-admin/login') && spaRe.test('/gohary-teacher-admin/panel/home'));
+    const panelRedirects = vercel.redirects || [];
+    check(
+      'vercel redirects legacy panel routes',
+      panelRedirects.some(r => r.source === '/admin' && r.destination === '/magdy-mm-admin/login') &&
+        panelRedirects.some(r => r.source === '/teacher-panel' && r.destination === '/gohary-teacher-admin/login') &&
+        panelRedirects.some(r => r.source === '/teacher_admin_panel' && r.destination === '/gohary-teacher-admin/login')
+    );
 
-    // --- لوحات التحكم (أدمن / مدرس) ---------------------------------------
-    for (const route of ['/admin', '/teacher-panel', '/teacher_admin_panel']) {
-      const page = await fetch(BASE + route);
-      const text = await page.text();
-      check(`panel page ${route}`, page.status === 200 && text.includes('/panel/panel.js') && text.includes('Physics Society'));
+    // --- لوحات التحكم الأصلية (أدمن / مدرس) --------------------------------
+    for (const [route, target] of [
+      ['/admin', '/magdy-mm-admin/login'],
+      ['/teacher-panel', '/gohary-teacher-admin/login'],
+      ['/teacher_admin_panel', '/gohary-teacher-admin/login']
+    ]) {
+      const page = await fetch(BASE + route, { redirect: 'manual' });
+      check(`legacy panel redirect ${route}`, page.status === 302 && page.headers.get('location') === target);
     }
 
-    const panelCss = await fetch(`${BASE}/panel/panel.css`);
-    check('panel css 200', panelCss.status === 200 && (panelCss.headers.get('content-type') || '').includes('text/css'));
-
-    const panelJs = await fetch(`${BASE}/panel/panel.js`);
-    check('panel js 200', panelJs.status === 200 && (await panelJs.text()).includes('ps_admin_token'));
+    for (const route of ['/magdy-mm-admin/login', '/gohary-teacher-admin/login']) {
+      const page = await fetch(BASE + route);
+      const text = await page.text();
+      check(`original panel shell ${route}`, page.status === 200 && text.includes('<div id="root">') && text.includes('/static/js/main.'));
+    }
 
     const adminLogin = await json('/api/admin/auth/login', {
       method: 'POST',
@@ -211,6 +219,43 @@ async function main() {
 
     const teacherOnAdmin = await fetch(`${BASE}/api/admin/overview`, { headers: teacherAuth });
     check('teacher cannot use admin api', teacherOnAdmin.status === 401 || teacherOnAdmin.status === 403);
+
+    // --- طبقة توافق اللوحات الأصلية ---------------------------------------
+    const pagesAllow = await json('/api/admin_pages_allow', { headers: adminAuth });
+    check('legacy admin pages allow', pagesAllow.res.status === 200 && Array.isArray(pagesAllow.body) && pagesAllow.body.includes('home'));
+
+    const secondaryEmail = await json('/api/admin/secondary_email/status', { headers: adminAuth });
+    check('legacy secondary email not required', secondaryEmail.res.status === 200 && secondaryEmail.body.secondary_email_required === false);
+
+    const legacyUsers = await json('/api/users/paginate?page=1&per_page=10', { headers: adminAuth });
+    check('legacy users table', legacyUsers.res.status === 200 && Array.isArray(legacyUsers.body.data) && legacyUsers.body.total >= 6);
+
+    const legacyCourses = await json('/api/courses/paginate?page=1&per_page=10', { headers: adminAuth });
+    check('legacy courses table', legacyCourses.res.status === 200 && Array.isArray(legacyCourses.body.data) && legacyCourses.body.data.length > 0);
+
+    const legacyStats = await json('/api/statistic/users-count', { headers: adminAuth });
+    check('legacy statistics series', legacyStats.res.status === 200 && Array.isArray(legacyStats.body.data) && legacyStats.body.data.length > 1);
+
+    const parallelPreview = await json('/api/account_creation_requests/parallel_preview', { headers: adminAuth });
+    check(
+      'legacy parallel preview shape',
+      parallelPreview.res.status === 200 &&
+        parallelPreview.body.overview &&
+        parallelPreview.body.overview.currently_reviewing_requests === 0 &&
+        Array.isArray(parallelPreview.body.data)
+    );
+
+    const teacherSubs = await json('/api/teacher_admin_panel/subscriptions/paginate?page=1&per_page=10', { headers: teacherAuth });
+    check('legacy teacher subscriptions table', teacherSubs.res.status === 200 && Array.isArray(teacherSubs.body.data) && teacherSubs.body.data.length > 0);
+
+    const teacherInvoices = await json('/api/teacher_admin_panel/invoices/paginate?page=1&per_page=10', { headers: teacherAuth });
+    check('legacy teacher invoices table', teacherInvoices.res.status === 200 && Array.isArray(teacherInvoices.body.data) && teacherInvoices.body.data.length > 0);
+
+    const teacherResults = await json('/api/teacher_admin_panel/exam_results/exam/paginate?page=1&per_page=10', { headers: teacherAuth });
+    check('legacy teacher exam results table', teacherResults.res.status === 200 && Array.isArray(teacherResults.body.data) && teacherResults.body.data.length > 0);
+
+    const teacherStats = await json('/api/teacher_admin_panel/teacher/statistics/subscriptions-count', { headers: teacherAuth });
+    check('legacy teacher statistics series', teacherStats.res.status === 200 && Array.isArray(teacherStats.body.data) && teacherStats.body.data.length > 1);
 
     const studentCreate = await json('/api/admin/students', {
       method: 'POST',

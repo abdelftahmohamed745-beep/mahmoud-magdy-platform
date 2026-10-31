@@ -27,7 +27,7 @@ jobs:
           node --check lib/data.js
           node --check lib/store.js
           node --check lib/panel.js
-          for file in public/panel/*.js; do node --check "$file"; done
+          node --check lib/legacy-panel.js
           node --check api/\[...path\].js
       - name: Smoke test
         run: npm test

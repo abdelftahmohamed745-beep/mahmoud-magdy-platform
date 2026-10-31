@@ -12,33 +12,41 @@
       "includeFiles": "data/**"
     }
   },
-  "rewrites": [
+  "redirects": [
     {
       "source": "/admin",
-      "destination": "/panel/admin.html"
+      "destination": "/magdy-mm-admin/login",
+      "permanent": false
     },
     {
       "source": "/admin/(.*)",
-      "destination": "/panel/admin.html"
+      "destination": "/magdy-mm-admin/login",
+      "permanent": false
     },
     {
       "source": "/teacher-panel",
-      "destination": "/panel/teacher.html"
+      "destination": "/gohary-teacher-admin/login",
+      "permanent": false
     },
     {
       "source": "/teacher-panel/(.*)",
-      "destination": "/panel/teacher.html"
+      "destination": "/gohary-teacher-admin/login",
+      "permanent": false
     },
     {
       "source": "/teacher_admin_panel",
-      "destination": "/panel/teacher.html"
+      "destination": "/gohary-teacher-admin/login",
+      "permanent": false
     },
     {
       "source": "/teacher_admin_panel/(.*)",
-      "destination": "/panel/teacher.html"
-    },
+      "destination": "/gohary-teacher-admin/login",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
     {
-      "source": "/((?!api/|sanctum/|static/|media/|panel/).*)",
+      "source": "/((?!api/|sanctum/|static/|media/).*)",
       "destination": "/index.html"
     }
   ],
